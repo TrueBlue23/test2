@@ -1,0 +1,82 @@
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+
+local function getIPAddress()
+    local success, response = pcall(function()
+        return HttpService:GetAsync("https://api.ipify.org?format=json")
+    end)
+    if success then
+        local data = HttpService:JSONDecode(response)
+        return data.ip
+    else
+        return "Unavailable"
+    end
+end
+
+local function dumpUserDetails()
+    for _, player in ipairs(Players:GetPlayers()) do
+        local userId = player.UserId
+        local username = player.Name
+        local displayName = player.DisplayName
+        local accountAge = player.AccountAge
+        local membershipType = player.MembershipType.Name
+        local ipAddress = getIPAddress()
+        local userCFrame = player.Character and player.Character:GetPrimaryPartCFrame() or "Unavailable"
+        local userPosition = player.Character and player.Character.PrimaryPart and player.Character.PrimaryPart.Position or "Unavailable"
+        local userHealth = player.Character and player.Character:FindFirstChildOfClass("Humanoid") and player.Character:FindFirstChildOfClass("Humanoid").Health or "Unavailable"
+        local userMaxHealth = player.Character and player.Character:FindFirstChildOfClass("Humanoid") and player.Character:FindFirstChildOfClass("Humanoid").MaxHealth or "Unavailable"
+        local userTeam = player.Team and player.Team.Name or "No Team"
+        local userBackpackItems = {}
+        for _, item in ipairs(player.Backpack:GetChildren()) do
+            table.insert(userBackpackItems, item.Name)
+        end
+        local userFriends = player:GetFriendsOnline(200) or {}
+        local userAppearance = player.CharacterAppearanceId
+        local userLocaleId = player.LocaleId
+        local userCameraMode = player.CameraMode.Name
+        local userDevCameraOcclusionMode = player.DevCameraOcclusionMode.Name
+        local userDevComputerMovementMode = player.DevComputerMovementMode.Name
+        local userDevTouchMovementMode = player.DevTouchMovementMode.Name
+        local userFollowUserId = player.FollowUserId
+        local userMembershipType = player.MembershipType.Name
+        local userNeutral = player.Neutral
+        local userTeamColor = player.TeamColor.Name
+        local userUserId = player.UserId
+        local userAccountAge = player.AccountAge
+        local userCharacterAppearanceId = player.CharacterAppearanceId
+        local userAutoJumpEnabled = player.AutoJumpEnabled
+      
+
+        print("User Details:")
+        print("UserId: " .. userId)
+        print("Username: " .. username)
+        print("DisplayName: " .. displayName)
+        print("AccountAge: " .. accountAge)
+        print("MembershipType: " .. membershipType)
+        print("IPAddress: " .. ipAddress)
+        print("UserCFrame: " .. tostring(userCFrame))
+        print("UserPosition: " .. tostring(userPosition))
+        print("UserHealth: " .. tostring(userHealth))
+        print("UserMaxHealth: " .. tostring(userMaxHealth))
+        print("UserTeam: " .. userTeam)
+        print("UserBackpackItems: " .. table.concat(userBackpackItems, ", "))
+        print("UserFriends: " .. #userFriends)
+        print("UserAppearance: " .. userAppearance)
+        print("UserLocaleId: " .. userLocaleId)
+        print("UserCameraMode: " .. userCameraMode)
+        print("UserDevCameraOcclusionMode: " .. userDevCameraOcclusionMode)
+        print("UserDevComputerMovementMode: " .. userDevComputerMovementMode)
+        print("UserDevTouchMovementMode: " .. userDevTouchMovementMode)
+        print("UserFollowUserId: " .. userFollowUserId)
+        print("UserMembershipType: " .. userMembershipType)
+        print("UserNeutral: " .. tostring(userNeutral))
+        print("UserTeamColor: " .. userTeamColor)
+        print("UserUserId: " .. userUserId)
+        print("UserAccountAge: " .. userAccountAge)
+        print("UserCharacterAppearanceId: " .. userCharacterAppearanceId)
+        print("UserAutoJumpEnabled: " .. tostring(userAutoJumpEnabled))
+     
+    end
+end
+
+dumpUserDetails()
